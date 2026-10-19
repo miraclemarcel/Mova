@@ -30,10 +30,10 @@ export default function SelectRideScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white">
       <View className="flex-[0.8]">
-        <FakeMap route pickupLabel={pickup.name} dropoffLabel={`${destination.name} · ${estimateTripMin(destination)} min`} />
-        <View className="absolute left-5" style={{ top: 12 }}>
+        <FakeMap route showCars pickupLabel={pickup.name} dropoffLabel={`${destination.name} · ${estimateTripMin(destination)} min`} />
+        <View className="absolute left-5" style={{ top: insets.top + 12 }}>
           <BackButton floating />
         </View>
       </View>

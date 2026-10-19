@@ -8,7 +8,7 @@ import { Screen } from '@/components/Screen';
 
 export default function WelcomeScreen() {
   return (
-    <Screen>
+    <Screen edges={['bottom']}>
       <View className="flex-1">
         <FakeMap showCars />
         <View className="absolute inset-x-0 bottom-0 h-40 bg-white/80" />

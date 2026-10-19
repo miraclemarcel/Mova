@@ -22,8 +22,8 @@ A ride-hailing mobile app for Nigeria (in the spirit of Uber / Bolt) built with 
 - **Search** — pickup + destination fields with live filtering of places
 - **Choose a ride** — Moto, Go, Comfort and XL with fare estimate, ETA and seat count
 - **Payment** — pick Cash, card, bank transfer or Mova Wallet
-- **Finding a driver** — animated search with cancel
-- **Live trip** — driver arriving → arrived (with pickup PIN) → in progress, with driver details, plate, call / message / share / safety actions
+- **Finding a driver** — radar search with nearby cars cruising the map, and cancel
+- **Live trip** — the driver's car drives along the streets to your pickup, waits (pickup PIN), then drives the route to your destination; "You've arrived" only shows once it gets there. Includes driver details, plate, call / message / share / safety actions
 - **Rate & tip** — fare breakdown, star rating, compliments and tip
 - **Activity** — trip history including cancelled rides
 
@@ -64,7 +64,7 @@ npx expo start -c
 ### Trying the app
 - Use any valid Nigerian mobile number, e.g. `0803 123 4567` or `803 123 4567`.
 - **Any 4-digit code** is accepted on the verification screen.
-- After booking, the trip moves through its stages on its own and reaches the rating screen in about 20 seconds.
+- After booking, the trip plays out on its own (driver match, drive to pickup, ride to destination) and reaches the rating screen in about 30 seconds.
 
 ## Scripts
 
@@ -98,7 +98,7 @@ src/
 │           ├── searching.tsx #   finding a driver
 │           ├── trip.tsx      #   live trip
 │           └── rate.tsx      #   rate & tip
-├── components/               # Reusable UI (AnimatedSplash, Button, FakeMap, ...)
+├── components/               # Reusable UI (AnimatedSplash, DriveLoader, FakeMap, Button, ...)
 ├── constants/data.ts         # Mock places, ride options, drivers, payment methods, locale
 ├── lib/                      # Formatting helpers and shared shadow styles
 ├── store/
@@ -117,7 +117,7 @@ The root layout uses `Stack.Protected` to show either the `(auth)` group or the 
 idle → searching → arriving → arrived → in_progress → completed
 ```
 
-The screens move it forward with timers (`MATCH_DELAY_MS` in `searching.tsx`, `STAGE_MS` in `trip.tsx`). Finished and cancelled trips are added to `history`, which feeds the Activity tab.
+Driver matching and the pickup wait use timers (`MATCH_DELAY_MS` in `searching.tsx`, `PICKUP_WAIT_MS` in `trip.tsx`); the driving stages advance when the car on the map reaches the end of its path (`APPROACH_MS` / `RIDE_MS`). Finished and cancelled trips are added to `history`, which feeds the Activity tab.
 
 ## Customisation
 

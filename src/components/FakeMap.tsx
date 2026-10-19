@@ -1,13 +1,12 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
-import { Animated, Text, View, type DimensionValue } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Text, View, type DimensionValue } from 'react-native';
 
 import { shadow } from '@/lib/shadow';
 
 /**
  * Illustrated stand-in for a real map (e.g. react-native-maps).
- * Positions are percentages of the map's size and kept in the upper half,
- * since bottom sheets cover the lower part of the screen.
+ * Points are percentages of the map's size and sit on the drawn roads, kept in the
+ * upper half since bottom sheets cover the lower part of the screen.
  */
 
 type Point = { x: number; y: number };
@@ -16,37 +15,52 @@ const PICKUP: Point = { x: 26, y: 42 };
 const DROPOFF: Point = { x: 72, y: 18 };
 const USER: Point = { x: 50, y: 42 };
 
-const DRIVER_POSITIONS = {
-  approaching: { x: 8, y: 42 },
-  pickup: { x: 26, y: 42 },
-  enRoute: { x: 72, y: 32 },
-} satisfies Record<string, Point>;
+/** Driver's route to the pickup, then the trip itself; both follow the roads. */
+const APPROACH_PATH: Point[] = [{ x: 50, y: 88 }, { x: 50, y: 66 }, { x: 26, y: 66 }, PICKUP];
+const RIDE_PATH: Point[] = [PICKUP, { x: 72, y: 42 }, DROPOFF];
 
-export type DriverPosition = keyof typeof DRIVER_POSITIONS;
+/** Nearby cars cruising up and down their streets. */
+const CRUISERS: { path: Point[]; duration: number; delay: number }[] = [
+  { path: [{ x: 6, y: 18 }, { x: 44, y: 18 }, { x: 6, y: 18 }], duration: 9000, delay: 0 },
+  { path: [{ x: 72, y: 52 }, { x: 72, y: 86 }, { x: 72, y: 52 }], duration: 8000, delay: 600 },
+  { path: [{ x: 4, y: 66 }, { x: 40, y: 66 }, { x: 4, y: 66 }], duration: 10000, delay: 1200 },
+  { path: [{ x: 50, y: 58 }, { x: 50, y: 86 }, { x: 50, y: 58 }], duration: 7000, delay: 300 },
+  { path: [{ x: 92, y: 10 }, { x: 92, y: 60 }, { x: 92, y: 10 }], duration: 11000, delay: 900 },
+  { path: [{ x: 58, y: 88 }, { x: 96, y: 88 }, { x: 58, y: 88 }], duration: 9500, delay: 1500 },
+];
 
 const H_ROADS = [18, 42, 66, 88];
 const V_ROADS = [26, 50, 72, 92];
-const IDLE_CARS: (Point & { rotate: string })[] = [
-  { x: 38, y: 18, rotate: '90deg' },
-  { x: 72, y: 54, rotate: '0deg' },
-  { x: 14, y: 66, rotate: '90deg' },
-  { x: 50, y: 26, rotate: '0deg' },
-  { x: 86, y: 42, rotate: '90deg' },
-];
 
 const pct = (n: number) => `${n}%` as DimensionValue;
+
+/**
+ * Where the driver is:
+ * - `approach` / `ride`: animating along the path over `duration`, then `onDone` fires.
+ * - `waiting` (at pickup) / `arrived` (at drop-off): parked at the end of the path.
+ */
+export type DriverState =
+  | { phase: 'approach' | 'ride'; duration: number; onDone?: () => void }
+  | { phase: 'waiting' | 'arrived' };
 
 type Props = {
   route?: boolean;
   pickupLabel?: string;
   dropoffLabel?: string;
   showCars?: boolean;
-  driver?: DriverPosition | null;
+  driver?: DriverState | null;
 };
 
+type Size = { w: number; h: number };
+
 export function FakeMap({ route, pickupLabel, dropoffLabel, showCars, driver }: Props) {
+  const [size, setSize] = useState<Size | null>(null);
+
   return (
-    <View className="absolute inset-0 overflow-hidden bg-[#EEF1EA]">
+    <View
+      className="absolute inset-0 overflow-hidden bg-[#EEF1EA]"
+      onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
       {/* Water & parks */}
       <View className="absolute rounded-[48px] bg-[#CFE4F6]" style={{ left: '58%', top: '72%', width: '70%', height: '40%' }} />
       <View className="absolute rounded-3xl bg-[#D6EDCF]" style={{ left: '4%', top: '4%', width: '18%', height: '11%' }} />
@@ -66,35 +80,155 @@ export function FakeMap({ route, pickupLabel, dropoffLabel, showCars, driver }: 
       />
 
       {route && <RouteLine />}
+      {route && driver?.phase === 'approach' && <PathLine points={APPROACH_PATH} color="#12B76A" />}
 
-      {showCars &&
-        IDLE_CARS.map((car, i) => (
-          <View key={i} className="absolute" style={{ left: pct(car.x), top: pct(car.y), marginLeft: -12, marginTop: -12 }}>
-            <View style={{ transform: [{ rotate: car.rotate }] }}>
-              <MaterialCommunityIcons name="car" size={24} color="#1C1F26" />
-            </View>
-          </View>
-        ))}
+      {size && showCars && CRUISERS.map((c, i) => <Cruiser key={i} size={size} {...c} />)}
 
       {!route && <UserDot />}
       {route && <Marker point={PICKUP} label={pickupLabel} kind="pickup" />}
       {route && <Marker point={DROPOFF} label={dropoffLabel} kind="dropoff" />}
-      {driver && <DriverMarker point={DRIVER_POSITIONS[driver]} />}
+      {size && driver && <DriverCar key={driver.phase} size={size} state={driver} />}
     </View>
   );
 }
 
+/* ---------- Motion along a path ---------- */
+
+/**
+ * Builds translate/rotate interpolations that move a car along `points` (in %) as
+ * `progress` goes 0 → 1, at constant speed, turning quickly at each corner.
+ */
+function followPath(progress: Animated.Value, points: Point[], size: Size, carW: number, carH: number) {
+  const px = points.map((p) => ({ x: (p.x / 100) * size.w, y: (p.y / 100) * size.h }));
+  const lengths = px.slice(1).map((p, i) => Math.hypot(p.x - px[i].x, p.y - px[i].y));
+  const total = lengths.reduce((a, b) => a + b, 0) || 1;
+  const stops = [0];
+  lengths.forEach((l) => stops.push(stops[stops.length - 1] + l / total));
+  stops[stops.length - 1] = 1;
+
+  // Heading per segment; 0deg = facing up. Unwrapped so turns take the short way round.
+  const headings: number[] = [];
+  lengths.forEach((_, i) => {
+    let deg = (Math.atan2(px[i + 1].x - px[i].x, -(px[i + 1].y - px[i].y)) * 180) / Math.PI;
+    const prev = headings[i - 1];
+    if (prev !== undefined) {
+      while (deg - prev > 180) deg -= 360;
+      while (deg - prev < -180) deg += 360;
+    }
+    headings.push(deg);
+  });
+
+  const rotIn: number[] = [];
+  const rotOut: string[] = [];
+  headings.forEach((deg, i) => {
+    const turn = Math.min(0.03, (stops[i + 1] - stops[i]) / 3);
+    const start = i === 0 ? 0 : stops[i] + turn;
+    const end = i === headings.length - 1 ? 1 : stops[i + 1] - turn;
+    rotIn.push(start, end);
+    rotOut.push(`${deg}deg`, `${deg}deg`);
+  });
+
+  return [
+    { translateX: progress.interpolate({ inputRange: stops, outputRange: px.map((p) => p.x - carW / 2) }) },
+    { translateY: progress.interpolate({ inputRange: stops, outputRange: px.map((p) => p.y - carH / 2) }) },
+    { rotate: progress.interpolate({ inputRange: rotIn, outputRange: rotOut }) },
+  ];
+}
+
+/** Top-down car, like the ones on real ride-hailing maps. Faces up by default. */
+function TopCar({ color, scale = 1, outlined }: { color: string; scale?: number; outlined?: boolean }) {
+  const w = 14 * scale;
+  const h = 26 * scale;
+  return (
+    <View
+      style={[
+        { width: w, height: h, borderRadius: 5 * scale, backgroundColor: color },
+        outlined && { borderWidth: 2, borderColor: '#FFFFFF' },
+        outlined && shadow.md,
+      ]}
+    >
+      <View style={{ position: 'absolute', top: 5 * scale, left: 2 * scale, right: 2 * scale, height: 6 * scale, borderRadius: 2 * scale, backgroundColor: 'rgba(255,255,255,0.75)' }} />
+      <View style={{ position: 'absolute', bottom: 3 * scale, left: 2.5 * scale, right: 2.5 * scale, height: 3 * scale, borderRadius: 1.5 * scale, backgroundColor: 'rgba(255,255,255,0.45)' }} />
+    </View>
+  );
+}
+
+function Cruiser({ size, path, duration, delay }: { size: Size; path: Point[]; duration: number; delay: number }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const anim = Animated.sequence([
+      Animated.delay(delay),
+      Animated.loop(Animated.timing(progress, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true })),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [progress, duration, delay]);
+
+  return (
+    <Animated.View style={{ position: 'absolute', left: 0, top: 0, transform: followPath(progress, path, size, 14, 26) }}>
+      <TopCar color="#1C1F26" />
+    </Animated.View>
+  );
+}
+
+const DRIVER_SCALE = 1.3;
+
+function DriverCar({ size, state }: { size: Size; state: DriverState }) {
+  const moving = state.phase === 'approach' || state.phase === 'ride';
+  const progress = useRef(new Animated.Value(moving ? 0 : 1)).current;
+  const onDone = moving ? state.onDone : undefined;
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  const duration = moving ? state.duration : 0;
+
+  useEffect(() => {
+    if (!moving) return;
+    const anim = Animated.timing(progress, {
+      toValue: 1,
+      duration,
+      easing: Easing.inOut(Easing.sin),
+      useNativeDriver: true,
+    });
+    anim.start(({ finished }) => finished && onDoneRef.current?.());
+    return () => anim.stop();
+  }, [moving, duration, progress]);
+
+  const path = state.phase === 'approach' || state.phase === 'waiting' ? APPROACH_PATH : RIDE_PATH;
+  const w = 14 * DRIVER_SCALE;
+  const h = 26 * DRIVER_SCALE;
+
+  return (
+    <Animated.View style={{ position: 'absolute', left: 0, top: 0, zIndex: 10, transform: followPath(progress, path, size, w, h) }}>
+      <TopCar color="#12B76A" scale={DRIVER_SCALE} outlined />
+    </Animated.View>
+  );
+}
+
+/* ---------- Static overlays ---------- */
+
 function RouteLine() {
+  return <PathLine points={RIDE_PATH} />;
+}
+
+/** Draws a polyline of horizontal/vertical segments (all our roads are axis-aligned). */
+function PathLine({ points, color = '#0B0D12' }: { points: Point[]; color?: string }) {
   return (
     <>
-      <View
-        className="absolute h-[5px] rounded-full bg-ink"
-        style={{ left: pct(PICKUP.x), top: pct(PICKUP.y), width: pct(DROPOFF.x - PICKUP.x), marginTop: -2.5 }}
-      />
-      <View
-        className="absolute w-[5px] rounded-full bg-ink"
-        style={{ left: pct(DROPOFF.x), top: pct(DROPOFF.y), height: pct(PICKUP.y - DROPOFF.y), marginLeft: -2.5 }}
-      />
+      {points.slice(1).map((p, i) => {
+        const a = points[i];
+        const horizontal = a.y === p.y;
+        return (
+          <View
+            key={i}
+            className="absolute rounded-full"
+            style={
+              horizontal
+                ? { backgroundColor: color, height: 5, left: pct(Math.min(a.x, p.x)), top: pct(a.y), width: pct(Math.abs(p.x - a.x)), marginTop: -2.5 }
+                : { backgroundColor: color, width: 5, left: pct(a.x), top: pct(Math.min(a.y, p.y)), height: pct(Math.abs(p.y - a.y)), marginLeft: -2.5 }
+            }
+          />
+        );
+      })}
     </>
   );
 }
@@ -140,17 +274,6 @@ function UserDot() {
         }}
       />
       <View className="h-5 w-5 rounded-full border-[3px] border-white bg-brand" style={shadow.md} />
-    </View>
-  );
-}
-
-function DriverMarker({ point }: { point: Point }) {
-  return (
-    <View
-      className="absolute h-10 w-10 items-center justify-center rounded-full bg-white"
-      style={[shadow.md, { left: pct(point.x), top: pct(point.y), marginLeft: -20, marginTop: -20 }]}
-    >
-      <MaterialCommunityIcons name="car" size={22} color="#12B76A" />
     </View>
   );
 }

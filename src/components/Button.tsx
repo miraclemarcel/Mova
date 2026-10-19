@@ -1,7 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, Text } from 'react-native';
+import { Pressable, Text } from 'react-native';
 
 import type { IconName } from '@/constants/data';
+
+import { DriveLoader } from './DriveLoader';
 
 type Variant = 'primary' | 'brand' | 'secondary' | 'outline' | 'danger';
 
@@ -19,6 +21,15 @@ const textStyles: Record<Variant, string> = {
   secondary: 'text-ink',
   outline: 'text-ink',
   danger: 'text-red-600',
+};
+
+// Road track behind the loading car, tuned to each background.
+const trackColors: Record<Variant, string> = {
+  primary: 'rgba(255,255,255,0.18)',
+  brand: 'rgba(255,255,255,0.3)',
+  secondary: 'rgba(11,13,18,0.12)',
+  outline: 'rgba(11,13,18,0.12)',
+  danger: 'rgba(220,38,38,0.18)',
 };
 
 const iconColors: Record<Variant, string> = {
@@ -50,7 +61,13 @@ export function Button({ title, onPress, variant = 'primary', icon, loading, dis
       } ${className}`}
     >
       {loading ? (
-        <ActivityIndicator color={iconColors[variant]} />
+        <DriveLoader
+          width={96}
+          carSize={20}
+          carColor={iconColors[variant]}
+          fillColor={variant === 'brand' ? '#FFFFFF' : variant === 'danger' ? '#DC2626' : '#12B76A'}
+          trackColor={trackColors[variant]}
+        />
       ) : (
         <>
           {icon && <MaterialCommunityIcons name={icon} size={20} color={iconColors[variant]} />}

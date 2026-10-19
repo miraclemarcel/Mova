@@ -5,26 +5,19 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
-import { FakeMap, type DriverPosition } from '@/components/FakeMap';
+import { FakeMap, type DriverState } from '@/components/FakeMap';
 import type { IconName } from '@/constants/data';
 import { estimateFare, estimateTripMin, formatMoney, initials } from '@/lib/format';
 import { shadow } from '@/lib/shadow';
 import { useBookingStore, useSelectedPayment, useSelectedRide, type TripStatus } from '@/store/booking';
 
-// How long each simulated stage lasts before advancing.
-const STAGE_MS: Partial<Record<TripStatus, number>> = {
-  arriving: 5000,
-  arrived: 4000,
-  in_progress: 6000,
-};
+// Simulated timings. Driving stages end when the car reaches the end of its path on the map.
+const APPROACH_MS = 7000;
+const PICKUP_WAIT_MS = 3500;
+const RIDE_MS = 9000;
+const ARRIVED_PAUSE_MS = 2200;
 
-const STEPS: TripStatus[] = ['arriving', 'arrived', 'in_progress'];
-
-const DRIVER_AT: Partial<Record<TripStatus, DriverPosition>> = {
-  arriving: 'approaching',
-  arrived: 'pickup',
-  in_progress: 'enRoute',
-};
+const STEPS: TripStatus[] = ['arriving', 'arrived', 'in_progress', 'completed'];
 
 export default function TripScreen() {
   const insets = useSafeAreaInsets();
@@ -37,16 +30,29 @@ export default function TripScreen() {
   const ride = useSelectedRide();
   const payment = useSelectedPayment();
 
+  // Timed stages only; the driving stages advance via the map's onDone.
   useEffect(() => {
-    if (status === 'completed') {
-      router.replace('/ride/rate');
-      return;
+    if (status === 'arrived') {
+      const id = setTimeout(advanceTrip, PICKUP_WAIT_MS);
+      return () => clearTimeout(id);
     }
-    const ms = STAGE_MS[status];
-    if (!ms) return;
-    const id = setTimeout(advanceTrip, ms);
-    return () => clearTimeout(id);
+    if (status === 'completed') {
+      // Let the rider see the car parked at the destination before the summary.
+      const id = setTimeout(() => router.replace('/ride/rate'), ARRIVED_PAUSE_MS);
+      return () => clearTimeout(id);
+    }
   }, [status, advanceTrip]);
+
+  const driverState: DriverState | null =
+    status === 'arriving'
+      ? { phase: 'approach', duration: APPROACH_MS, onDone: advanceTrip }
+      : status === 'arrived'
+        ? { phase: 'waiting' }
+        : status === 'in_progress'
+          ? { phase: 'ride', duration: RIDE_MS, onDone: advanceTrip }
+          : status === 'completed'
+            ? { phase: 'arrived' }
+            : null;
 
   // Rendering nothing avoids racing the cancel navigation once the store resets.
   if (!destination || !driver) return null;
@@ -60,7 +66,8 @@ export default function TripScreen() {
     arriving: { title: `Arriving in ${ride.etaMin} min`, subtitle: `${driver.name.split(' ')[0]} is on the way to you` },
     arrived: { title: 'Your driver is here', subtitle: `Meet at ${pickup.name}` },
     in_progress: { title: `Heading to ${destination.name}`, subtitle: `Arrive by ${arrivalTime}` },
-  }[status as 'arriving' | 'arrived' | 'in_progress'] ?? { title: 'Wrapping up…', subtitle: '' };
+    completed: { title: "You've arrived", subtitle: `${destination.name} · Thanks for riding with Mova` },
+  }[status as 'arriving' | 'arrived' | 'in_progress' | 'completed'] ?? { title: 'Connecting…', subtitle: '' };
 
   const onCancel = () => {
     cancelRide();
@@ -68,10 +75,10 @@ export default function TripScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white">
       <View className="flex-1">
-        <FakeMap route pickupLabel={pickup.name} dropoffLabel={destination.name} driver={DRIVER_AT[status]} />
-        <View className="absolute right-5 rounded-full bg-white px-3 py-2" style={[shadow.md, { top: 12 }]}>
+        <FakeMap route pickupLabel={pickup.name} dropoffLabel={destination.name} driver={driverState} />
+        <View className="absolute right-5 rounded-full bg-white px-3 py-2" style={[shadow.md, { top: insets.top + 12 }]}>
           <View className="flex-row items-center gap-1.5">
             <MaterialCommunityIcons name="shield-check" size={16} color="#12B76A" />
             <Text className="text-xs font-semibold text-ink">Trip protected</Text>
@@ -90,6 +97,7 @@ export default function TripScreen() {
               <Text className="text-xs font-bold text-brand-700">PIN 4821</Text>
             </View>
           )}
+          {status === 'completed' && <MaterialCommunityIcons name="check-circle" size={32} color="#12B76A" />}
         </View>
 
         <View className="mt-4 flex-row gap-1.5">
@@ -139,7 +147,7 @@ export default function TripScreen() {
           <Text className="text-base font-bold text-ink">{formatMoney(estimateFare(ride, destination))}</Text>
         </View>
 
-        {status !== 'in_progress' && (
+        {(status === 'arriving' || status === 'arrived') && (
           <Button title="Cancel ride" variant="danger" className="mt-4" onPress={onCancel} />
         )}
       </View>

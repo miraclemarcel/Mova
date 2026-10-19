@@ -5,6 +5,7 @@ import { Animated, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
+import { DriveLoader } from '@/components/DriveLoader';
 import { FakeMap } from '@/components/FakeMap';
 import { estimateFare, formatMoney } from '@/lib/format';
 import { shadow } from '@/lib/shadow';
@@ -39,9 +40,9 @@ export default function SearchingScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white">
       <View className="flex-[1.1]">
-        <FakeMap route pickupLabel={pickup.name} dropoffLabel={destination.name} />
+        <FakeMap route showCars pickupLabel={pickup.name} dropoffLabel={destination.name} />
         <View className="absolute inset-0 items-center justify-center">
           <Radar />
         </View>
@@ -50,7 +51,9 @@ export default function SearchingScreen() {
       <View className="-mt-6 rounded-t-[28px] bg-white px-5 pt-5" style={[shadow.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <Text className="text-2xl font-extrabold text-ink">Finding your driver…</Text>
         <Text className="mt-1 text-base text-ink-600">Matching you with a nearby {ride.name}</Text>
-        <ProgressBar />
+        <View className="mt-4">
+          <DriveLoader carSize={26} trackColor="#EEF0F3" duration={1800} />
+        </View>
 
         <View className="mt-5 gap-4 rounded-2xl bg-ink-50 p-4">
           <TripLine icon="circle-slice-8" label="Pickup" value={pickup.name} />
@@ -116,25 +119,6 @@ function Radar() {
       <View className="h-14 w-14 items-center justify-center rounded-full bg-ink" style={shadow.md}>
         <MaterialCommunityIcons name="car" size={28} color="#12B76A" />
       </View>
-    </View>
-  );
-}
-
-function ProgressBar() {
-  const progress = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(progress, { toValue: 1, duration: MATCH_DELAY_MS, useNativeDriver: false }).start();
-  }, [progress]);
-
-  return (
-    <View className="mt-4 h-1.5 overflow-hidden rounded-full bg-ink-100">
-      <Animated.View
-        style={{
-          height: '100%',
-          backgroundColor: '#12B76A',
-          width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-        }}
-      />
     </View>
   );
 }

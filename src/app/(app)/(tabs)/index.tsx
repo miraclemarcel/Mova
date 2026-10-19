@@ -28,10 +28,10 @@ export default function HomeScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white">
       <View className="flex-[0.9]">
         <FakeMap showCars />
-        <View className="absolute inset-x-0 flex-row items-center justify-between px-5" style={{ top: 12 }}>
+        <View className="absolute inset-x-0 flex-row items-center justify-between px-5" style={{ top: insets.top + 12 }}>
           <IconButton icon="menu" floating onPress={() => router.push('/account')} />
           <View className="flex-row items-center gap-2 rounded-full bg-white px-4 py-2.5" style={shadow.md}>
             <View className="h-2 w-2 rounded-full bg-brand" />
