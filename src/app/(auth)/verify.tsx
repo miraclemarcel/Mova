@@ -5,6 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { BackButton } from '@/components/IconButton';
 import { Screen } from '@/components/Screen';
+import { formatPhone } from '@/lib/format';
 import { useAuthStore } from '@/store/auth';
 
 const CODE_LENGTH = 4;
@@ -57,7 +58,7 @@ export default function VerifyScreen() {
         <View className="gap-2">
           <Text className="text-3xl font-extrabold text-ink">Enter the code</Text>
           <Text className="text-base text-ink-600">
-            Sent by SMS to <Text className="font-semibold text-ink">{phone}</Text>
+            Sent by SMS to <Text className="font-semibold text-ink">{formatPhone(phone)}</Text>
           </Text>
         </View>
 

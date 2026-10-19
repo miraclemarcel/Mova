@@ -34,9 +34,9 @@ const NEXT_STATUS: Partial<Record<TripStatus, TripStatus>> = {
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 
 const SEED_HISTORY: Trip[] = [
-  { id: 't1', date: daysAgo(1), pickup: CURRENT_LOCATION, destination: PLACES[0], rideId: 'go', fare: 6.24, driverName: 'Sarah Mensah', rating: 5, status: 'completed' },
-  { id: 't2', date: daysAgo(4), pickup: CURRENT_LOCATION, destination: PLACES[1], rideId: 'comfort', fare: 31.55, driverName: 'Michael Chen', rating: 4, status: 'completed' },
-  { id: 't3', date: daysAgo(9), pickup: CURRENT_LOCATION, destination: PLACES[3], rideId: 'go', fare: 0, driverName: 'Daniel Okafor', rating: null, status: 'cancelled' },
+  { id: 't1', date: daysAgo(1), pickup: CURRENT_LOCATION, destination: PLACES[0], rideId: 'go', fare: 3200, driverName: 'Aisha Bello', rating: 5, status: 'completed' },
+  { id: 't2', date: daysAgo(4), pickup: CURRENT_LOCATION, destination: PLACES[1], rideId: 'comfort', fare: 13400, driverName: 'Tunde Adeyemi', rating: 4, status: 'completed' },
+  { id: 't3', date: daysAgo(9), pickup: CURRENT_LOCATION, destination: PLACES[3], rideId: 'go', fare: 0, driverName: 'Chinedu Okafor', rating: null, status: 'cancelled' },
 ];
 
 type BookingState = {

@@ -9,7 +9,7 @@ import { RIDE_OPTIONS } from '@/constants/data';
 import { estimateFare, formatMoney, initials } from '@/lib/format';
 import { useBookingStore } from '@/store/booking';
 
-const TIPS = [0, 1, 2, 5];
+const TIPS = [0, 200, 500, 1000];
 const COMPLIMENTS = ['Great driving', 'Clean car', 'Friendly', 'Good music', 'Knew the route'];
 
 export default function RateScreen() {

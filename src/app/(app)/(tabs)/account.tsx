@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import type { IconName } from '@/constants/data';
-import { initials } from '@/lib/format';
+import { formatPhone, initials } from '@/lib/format';
 import { useAuthStore } from '@/store/auth';
 import { useSelectedPayment } from '@/store/booking';
 
@@ -36,7 +36,7 @@ export default function AccountScreen() {
             <Text className="text-xl font-bold text-ink">
               {user?.firstName} {user?.lastName}
             </Text>
-            <Text className="text-sm text-ink-600">{user?.phone}</Text>
+            <Text className="text-sm text-ink-600">{formatPhone(user?.phone ?? '')}</Text>
             {user?.email ? <Text className="text-sm text-ink-600">{user.email}</Text> : null}
           </View>
           <View className="flex-row items-center gap-1 rounded-full bg-white px-3 py-1.5">
