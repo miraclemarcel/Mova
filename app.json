@@ -7,9 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.mova.app",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.mova.app",
       "adaptiveIcon": {
         "backgroundColor": "#0B0D12",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -38,6 +40,12 @@
       ]
     ],
     "scheme": "mova",
-    "backgroundColor": "#FFFFFF"
+    "backgroundColor": "#FFFFFF",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dc0ae192-1cf7-409a-b836-ddf4205eedb5"
+      }
+    }
   }
 }
