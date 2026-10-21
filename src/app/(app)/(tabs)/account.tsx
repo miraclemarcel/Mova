@@ -6,7 +6,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import type { IconName } from '@/constants/data';
 import { formatPhone, initials } from '@/lib/format';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore } from '@/store/auth'; 
 import { useSelectedPayment } from '@/store/booking';
 
 export default function AccountScreen() {

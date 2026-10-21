@@ -10,7 +10,7 @@ import { RECENT_PLACES, SAVED_PLACES, type Place } from '@/constants/data';
 import { shadow } from '@/lib/shadow';
 import { useAuthStore } from '@/store/auth';
 import { useBookingStore } from '@/store/booking';
-
+ 
 const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
